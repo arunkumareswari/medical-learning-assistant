@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedRAG - Medical Research & Learning Assistant</title>
+    <meta name="description"
+        content="AI-powered medical research assistant with access to medical textbooks and 35M+ PubMed articles.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+    <!-- Main Container -->
+    <div class="app-wrapper">
+
+        <!-- Top Navigation Bar -->
+        <nav class="top-navbar">
+            <div class="nav-left">
+                <div class="logo-container">
+                    <div class="logo-icon">
+                        <i data-lucide="dna"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>MedRAG</h1>
+                        <span>Research Assistant</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-center">
+                <div class="search-mode-selector">
+                    <button class="mode-btn active" data-mode="hybrid">
+                        <i data-lucide="book-open-check"></i>
+                        Hybrid Search
+                    </button>
+                    <button class="mode-btn" data-mode="textbook">
+                        <i data-lucide="book"></i>
+                        Textbooks Only
+                    </button>
+                    <button class="mode-btn" data-mode="pubmed">
+                        <i data-lucide="microscope"></i>
+                        PubMed Only
+                    </button>
+                </div>
+            </div>
+
+            <div class="nav-right">
+                <button class="icon-btn" onclick="toggleHistory()" title="Query History">
+                    <i data-lucide="clock"></i>
+                </button>
+                <button class="icon-btn" onclick="toggleSettings()" title="Settings & Info">
+                    <i data-lucide="settings"></i>
+                </button>
+                <button class="icon-btn opd-nav-btn" onclick="toggleOPD()" title="OPD Assistant">
+                    <i data-lucide="stethoscope"></i>
+                </button>
+                <div class="user-profile">
+                    <div class="user-avatar">AK</div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Grid -->
+        <div class="main-grid">
+
+            <!-- Left Sidebar - History -->
+            <aside class="left-sidebar" id="historyPanel">
+                <div class="sidebar-header" style="justify-content: center; padding: 1.25rem 1rem;">
+                    <button class="new-chat-btn" onclick="newChat()" title="Start New Chat"
+                        style="width: 100%; justify-content: center; background: var(--gradient-brand); border: none; padding: 10px 15px; border-radius: 10px; font-weight: 600; color: white; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s ease;">
+                        <i data-lucide="plus" style="width: 18px; height: 18px; color: white;"></i> New Chat
+                    </button>
+                </div>
+                <div class="history-list" id="historyList">
+                    <!-- Dynamically populated -->
+                </div>
+            </aside>
+
+            <!-- Center - Main Chat Area -->
+            <main class="center-content">
+
+                <!-- Welcome Hero -->
+                <div id="welcomeHero" class="welcome-hero">
+                    <div class="hero-badge">
+                        <i data-lucide="shield-check"></i>
+                        Evidence-Based Learning
+                    </div>
+                    <h1 class="hero-title">Medical Research Assistant</h1>
+                    <p class="hero-subtitle">Search across verified medical textbooks and 35M+ peer-reviewed PubMed
+                        articles with AI-powered synthesis.</p>
+                </div>
+
+                <!-- Chat Messages Container -->
+                <div id="chatContainer" class="chat-messages">
+                    <!-- Messages appear here -->
+                </div>
+
+                <!-- Query Input Box -->
+                <div class="query-input-container">
+                    <div class="input-wrapper">
+                        <div class="input-top">
+                            <textarea id="queryInput"
+                                placeholder="Ask a medical question (e.g., 'What are the diagnostic criteria for diabetes mellitus?')"
+                                rows="1"></textarea>
+                        </div>
+                        <div class="input-bottom">
+                            <div class="input-left">
+                                <button class="tool-btn" id="toolsBtn" onclick="toggleTools()">
+                                    <i data-lucide="wand-2"></i>
+                                    <span id="selectedToolLabel">AI Tools</span>
+                                </button>
+
+                                <!-- Tools Dropdown -->
+                                <div class="tools-dropdown" id="toolsDropdown">
+                                    <div class="tool-item" onclick="selectTool('default')">
+                                        <i data-lucide="message-square"></i>
+                                        <div>
+                                            <div class="tool-name">General Chat</div>
+                                            <div class="tool-desc">Like ChatGPT / Claude</div>
+                                        </div>
+                                    </div>
+                                    <div class="tool-item" onclick="selectTool('study')">
+                                        <i data-lucide="graduation-cap"></i>
+                                        <div>
+                                            <div class="tool-name">Study Mode</div>
+                                            <div class="tool-desc">Medical Exam Prep (5M / 15M)</div>
+                                        </div>
+                                    </div>
+                                    <div class="tool-item" onclick="selectTool('websearch')">
+                                        <i data-lucide="globe"></i>
+                                        <div>
+                                            <div class="tool-name">Web Search</div>
+                                            <div class="tool-desc">Latest Research & Articles</div>
+                                        </div>
+                                    </div>
+                                    <div class="tool-item" onclick="selectTool('clinical')">
+                                        <i data-lucide="stethoscope"></i>
+                                        <div>
+                                            <div class="tool-name">OPD Assistant</div>
+                                            <div class="tool-desc">Clinical Case & Diagnosis</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="input-right">
+                                <select id="modelSelector" class="model-select">
+                                    <optgroup label="Groq">
+                                        <option value="groq:openai/gpt-oss-120b">GPT-OSS 120B</option>
+                                        <option value="groq:llama-3.3-70b-versatile" selected>Llama 3.3 70B</option>
+                                        <option value="groq:llama-3.1-8b-instant">Llama 3.1 8B</option>
+                                        <option value="groq:mixtral-8x7b-32768">Mixtral 8x7B</option>
+                                    </optgroup>
+                                    <optgroup label="Gemini">
+                                        <option value="gemini:gemini-pro">Gemini Pro (1.0) ✦</option>
+                                        <option value="gemini:gemini-1.5-flash-001">Gemini 1.5 Flash</option>
+                                        <option value="gemini:gemini-1.5-pro-001">Gemini 1.5 Pro</option>
+                                        <option value="gemini:gemini-2.0-flash">Gemini 2.0 Flash</option>
+                                    </optgroup>
+                                </select>
+
+                                <button class="send-btn" id="sendBtn" title="Send">
+                                    <i data-lucide="send"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Sidebar - Settings & Info -->
+            <aside class="right-sidebar" id="settingsPanel">
+                <div class="sidebar-header">
+                    <h3><i data-lucide="info"></i> About This System</h3>
+                </div>
+
+                <div class="info-section">
+                    <h4>Data Sources</h4>
+                    <div class="source-badge textbook-badge">
+                        <i data-lucide="book"></i>
+                        Medical Textbooks
+                    </div>
+                    <div class="source-badge pubmed-badge">
+                        <i data-lucide="microscope"></i>
+                        PubMed Research
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h4>Search Modes</h4>
+                    <ul class="info-list">
+                        <li><strong>Hybrid:</strong> Combines textbooks + PubMed</li>
+                        <li><strong>Textbooks:</strong> Focus on foundational knowledge</li>
+                        <li><strong>PubMed:</strong> Latest research only</li>
+                    </ul>
+                </div>
+
+                <div class="info-section">
+                    <h4>AI Models</h4>
+                    <ul class="info-list">
+                        <li><strong>GPT-OSS 120B:</strong> Most capable</li>
+                        <li><strong>Llama 3.3 70B:</strong> High accuracy</li>
+                        <li><strong>Llama 3.1 8B:</strong> Fastest responses</li>
+                        <li><strong>Gemini:</strong> Alternative provider</li>
+                    </ul>
+                </div>
+
+                <div class="disclaimer">
+                    <i data-lucide="alert-triangle"></i>
+                    <p><strong>Medical Disclaimer:</strong> This tool is for educational purposes only. Always consult
+                        healthcare professionals for medical advice.</p>
+                </div>
+            </aside>
+        </div>
+
+        <!-- OPD Patient Panel (Overlay) -->
+        <div class="opd-overlay" id="opdPanel" style="display:none;">
+            <div class="opd-panel">
+                <!-- Panel Header -->
+                <div class="opd-header">
+                    <div class="opd-header-left" id="opdHeaderLeft">
+                        <i data-lucide="stethoscope"></i>
+                        <h2>OPD Patients</h2>
+                    </div>
+                    <div class="opd-header-right">
+                        <button class="opd-add-btn" id="opdAddBtn" onclick="showPatientForm()">
+                            <i data-lucide="plus"></i> Add Patient
+                        </button>
+                        <button class="opd-close-btn" onclick="toggleOPD()">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- View 1: Patient List -->
+                <div class="opd-view" id="opdListView">
+                    <div class="opd-patient-list" id="opdPatientList">
+                        <!-- Dynamically populated -->
+                    </div>
+                    <div class="opd-empty" id="opdEmpty">
+                        <i data-lucide="clipboard-plus"></i>
+                        <p>No patients added yet.</p>
+                        <span>Click "Add Patient" to create your first OPD case.</span>
+                    </div>
+                </div>
+
+                <!-- View 2: Patient Form -->
+                <div class="opd-view" id="opdFormView" style="display:none;">
+                    <form id="patientForm" class="opd-form" onsubmit="return false;">
+                        <!-- Basic Info -->
+                        <div class="opd-section">
+                            <h3><i data-lucide="user"></i> Basic Information</h3>
+                            <div class="opd-row">
+                                <div class="opd-field">
+                                    <label>Patient Name</label>
+                                    <input type="text" id="pName" placeholder="e.g., Ravi Kumar" required>
+                                </div>
+                                <div class="opd-field opd-field-small">
+                                    <label>Age</label>
+                                    <input type="number" id="pAge" placeholder="45" required>
+                                </div>
+                                <div class="opd-field opd-field-small">
+                                    <label>Sex</label>
+                                    <select id="pSex">
+                                        <option>Male</option>
+                                        <option>Female</option>
+                                        <option>Other</option>
+                                    </select>
+                                </div>
+                                <div class="opd-field opd-field-small">
+                                    <label>OP Number</label>
+                                    <input type="text" id="pOpNumber" placeholder="OP-1234">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chief Complaint -->
+                        <div class="opd-section">
+                            <h3><i data-lucide="alert-circle"></i> Chief Complaint</h3>
+                            <textarea id="pChiefComplaint" rows="2"
+                                placeholder="e.g., Fever and cough x 3 days"></textarea>
+                        </div>
+
+                        <!-- History of Present Illness -->
+                        <div class="opd-section">
+                            <h3><i data-lucide="file-text"></i> History of Present Illness</h3>
+                            <textarea id="pHPI" rows="3" placeholder="Detailed symptom timeline..."></textarea>
+                        </div>
+
+                        <!-- Past History & Drug History -->
+                        <div class="opd-section">
+                            <h3><i data-lucide="history"></i> Past & Drug History</h3>
+                            <div class="opd-row">
+                                <div class="opd-field">
+                                    <label>Past Medical History</label>
+                                    <textarea id="pPastHistory" rows="2"
+                                        placeholder="DM, HTN, TB, Surgeries..."></textarea>
+                                </div>
+                                <div class="opd-field">
+                                    <label>Drug History</label>
+                                    <textarea id="pDrugHistory" rows="2"
+                                        placeholder="Current medications..."></textarea>
+                                </div>
+                            </div>
+                            <div class="opd-field" style="margin-top:0.5rem;">
+                                <label>Family History</label>
+                                <input type="text" id="pFamilyHistory" placeholder="Father - HTN, Mother - DM...">
+                            </div>
+                        </div>
+
+                        <!-- Vitals -->
+                        <div class="opd-section">
+                            <h3><i data-lucide="heart-pulse"></i> Vitals</h3>
+                            <div class="opd-vitals-grid">
+                                <div class="opd-vital">
+                                    <label>BP (mmHg)</label>
+                                    <input type="text" id="pBP" placeholder="130/80">
+                                </div>
+                                <div class="opd-vital">
+                                    <label>Pulse (bpm)</label>
+                                    <input type="number" id="pPulse" placeholder="88">
+                                </div>
+                                <div class="opd-vital">
+                                    <label>Temp (°F)</label>
+                                    <input type="text" id="pTemp" placeholder="101">
+                                </div>
+                                <div class="opd-vital">
+                                    <label>SpO2 (%)</label>
+                                    <input type="number" id="pSpO2" placeholder="96">
+                                </div>
+                                <div class="opd-vital">
+                                    <label>RR (/min)</label>
+                                    <input type="number" id="pRR" placeholder="18">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- General Examination -->
+                        <div class="opd-section">
+                            <h3><i data-lucide="scan-eye"></i> General Examination</h3>
+                            <textarea id="pGeneralExam" rows="2"
+                                placeholder="Built, Nourishment, Pallor, Icterus, Cyanosis, Clubbing, Edema, Lymphadenopathy..."></textarea>
+                        </div>
+
+                        <!-- Systemic Examination -->
+                        <div class="opd-section">
+                            <h3><i data-lucide="activity"></i> Systemic Examination</h3>
+                            <div class="opd-row">
+                                <div class="opd-field">
+                                    <label>CVS</label>
+                                    <input type="text" id="pCVS" placeholder="S1S2 normal, no murmurs">
+                                </div>
+                                <div class="opd-field">
+                                    <label>RS</label>
+                                    <input type="text" id="pRS" placeholder="NVBS, bilateral crepts">
+                                </div>
+                            </div>
+                            <div class="opd-row">
+                                <div class="opd-field">
+                                    <label>P/A</label>
+                                    <input type="text" id="pPA" placeholder="Soft, non-tender">
+                                </div>
+                                <div class="opd-field">
+                                    <label>CNS</label>
+                                    <input type="text" id="pCNS" placeholder="No focal deficit">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Provisional Diagnosis -->
+                        <div class="opd-section">
+                            <h3><i data-lucide="clipboard-check"></i> Provisional Diagnosis</h3>
+                            <input type="text" id="pDiagnosis" placeholder="Your initial impression...">
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="opd-actions">
+                            <button type="button" class="opd-btn-secondary" onclick="showPatientList()">
+                                <i data-lucide="arrow-left"></i> Back
+                            </button>
+                            <button type="button" class="opd-btn-save" onclick="savePatient()">
+                                <i data-lucide="save"></i> Save Patient
+                            </button>
+                            <button type="button" class="opd-btn-analyze" onclick="analyzeWithAI()">
+                                <i data-lucide="brain"></i> Analyze with AI
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- View 3: Patient Detail (read-only) -->
+                <div class="opd-view" id="opdDetailView" style="display:none;">
+                    <div id="opdDetailContent"></div>
+                    <div class="opd-actions">
+                        <button type="button" class="opd-btn-secondary" onclick="showPatientList()">
+                            <i data-lucide="arrow-left"></i> Back
+                        </button>
+                        <button type="button" class="opd-btn-analyze" onclick="analyzePatientWithAI()">
+                            <i data-lucide="brain"></i> Analyze with AI
+                        </button>
+                        <button type="button" class="opd-btn-delete" onclick="deleteCurrentPatient()">
+                            <i data-lucide="trash-2"></i> Delete
+                        </button>
+                    </div>
+                </div>
+
+                <!-- View 4: AI Analysis Results -->
+                <div class="opd-view" id="opdAnalysisView" style="display:none;">
+                    <div class="opd-analysis-patient-bar" id="opdAnalysisPatientBar"></div>
+                    <div class="opd-analysis-loading" id="opdAnalysisLoading" style="display:none;">
+                        <div class="opd-loading-spinner"></div>
+                        <p>Analyzing patient case...</p>
+                    </div>
+                    <div class="opd-analysis-result" id="opdAnalysisResult"></div>
+                    <div class="opd-actions">
+                        <button type="button" class="opd-btn-secondary" onclick="backFromAnalysis()">
+                            <i data-lucide="arrow-left"></i> Back to Patient
+                        </button>
+                        <button type="button" class="opd-btn-secondary" onclick="showPatientList()">
+                            <i data-lucide="list"></i> All Patients
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="scripts.js"></script>
+</body>
+
+</html>
