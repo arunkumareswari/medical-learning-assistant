@@ -21,11 +21,10 @@ An AI-powered medical learning assistant built for university medical students. 
 | **OPD Assistant** | Clinical case analysis with differential diagnosis and management plans |
 
 ### 🩺 OPD Patient Management
-- Full-screen patient management panel
-- Create and store patient profiles with clinical details (vitals, history, examination)
-- **AI-powered clinical analysis** rendered directly inside the OPD panel
-- Structured output: Summary → Suspected Diagnosis → Differentials → Investigations → Management
-- Mobile/iPad optimized for bedside use
+- **Full-screen patient management panel** for streamlined clinical workflows.
+- **Smart OP Numbering**: Date-based sequential numbering (e.g., `DATE001`,→ `13001`) with automatic daily reset.
+
+- **Responsive Design**: iPad and mobile optimized for bedside use in clinical settings.
 
 ### 🔍 Search Modes
 - **Hybrid** — Combines medical textbooks + PubMed research
@@ -37,6 +36,7 @@ An AI-powered medical learning assistant built for university medical students. 
 - **Google Gemini**: Gemini Pro, Gemini 1.5 Flash/Pro, Gemini 2.0 Flash
 
 ---
+
 
 ## 🏗️ Architecture
 
@@ -119,28 +119,6 @@ The API will be available at `http://localhost:8000`.
 ### 5. Open the Frontend
 
 Open `frontend/index.html` with a Live Server (e.g., VS Code Live Server extension) at `http://127.0.0.1:5500/frontend/index.html`.
-
-### 6. Upload Textbooks
-
-Upload medical textbook PDFs through the web UI or via the API endpoint:
-```bash
-curl -X POST http://localhost:8000/upload -F "file=@your_textbook.pdf"
-```
-
----
-
-## 🔌 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Health check & system stats |
-| `POST` | `/query/stream` | Stream AI response (SSE) |
-| `POST` | `/query` | Non-streaming response |
-| `POST` | `/upload` | Upload medical textbook PDF |
-| `GET` | `/books` | List all uploaded books |
-| `DELETE` | `/books/{book_id}` | Delete a book |
-| `GET` | `/stats` | System statistics |
-| `GET` | `/health` | Detailed health check |
 
 ---
 
