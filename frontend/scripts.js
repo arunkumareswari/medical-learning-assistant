@@ -459,11 +459,11 @@ function selectTool(tool) {
 
 // ===== HISTORY MANAGEMENT =====
 function saveToHistory(firstQuery) {
-    let sessions = JSON.parse(localStorage.getItem('medrag_sessions') || '[]');
+    let sessions = safeJSONParse('medrag_sessions', []);
 
     // Migration from old format
     if (sessions.length === 0) {
-        let oldHistory = JSON.parse(localStorage.getItem('medrag_history') || '[]');
+        let oldHistory = safeJSONParse('medrag_history', []);
         if (oldHistory.length > 0) {
             sessions = oldHistory.map(item => ({
                 id: Date.now().toString() + Math.random(),
@@ -498,13 +498,24 @@ function saveToHistory(firstQuery) {
     loadHistory();
 }
 
+function safeJSONParse(key, defaultVal) {
+    try {
+        const val = localStorage.getItem(key);
+        if (!val) return defaultVal;
+        return JSON.parse(val);
+    } catch (e) {
+        console.error(`Error parsing localStorage key ${key}:`, e);
+        return defaultVal;
+    }
+}
+
 function loadHistory() {
-    let sessions = JSON.parse(localStorage.getItem('medrag_sessions') || '[]');
+    let sessions = safeJSONParse('medrag_sessions', []);
     const historyList = document.getElementById('historyList');
 
     // Migration fallback
     if (sessions.length === 0 && localStorage.getItem('medrag_history')) {
-        let oldHistory = JSON.parse(localStorage.getItem('medrag_history') || '[]');
+        let oldHistory = safeJSONParse('medrag_history', []);
         sessions = oldHistory.map(item => ({
             id: Date.now().toString() + Math.random(),
             title: item.query,
@@ -528,19 +539,23 @@ function loadHistory() {
             loadSession(session.id);
         };
 
-        const timeAgo = getTimeAgo(session.timestamp);
-
         div.innerHTML = `
             <div class="history-item-title">${escapeHtml(session.title)}</div>
-            <div class="history-item-time">${timeAgo}</div>
         `;
 
         historyList.appendChild(div);
     });
+
+    /* 
+    // Automatically load the most recent session if we just loaded the page and haven't started chatting
+    if (conversationHistory.length === 0 && sessions.length > 0) {
+        loadSession(sessions[0].id);
+    }
+    */
 }
 
 function loadSession(id) {
-    const sessions = JSON.parse(localStorage.getItem('medrag_sessions') || '[]');
+    const sessions = safeJSONParse('medrag_sessions', []);
     const session = sessions.find(s => s.id === id);
     if (!session) return;
 
@@ -565,10 +580,9 @@ function loadSession(id) {
         }
     });
 
-    // Close sidebar on mobile
-    if (window.innerWidth <= 768) {
-        toggleHistory();
-    }
+    // Close mobile sidebar if open
+    const historyPanel = document.getElementById('historyPanel');
+    if (historyPanel) historyPanel.classList.remove('mobile-open');
 
     lucide.createIcons();
     scrollToBottom();
@@ -587,10 +601,29 @@ function newChat() {
     const welcomeHero = document.getElementById('welcomeHero');
     if (welcomeHero) welcomeHero.style.display = 'flex';
 
-    // On mobile, close sidebar after clicking new chat
-    if (window.innerWidth <= 768) {
-        toggleHistory();
-    }
+    // Close mobile sidebar if open
+    const historyPanel = document.getElementById('historyPanel');
+    if (historyPanel) historyPanel.classList.remove('mobile-open');
+}
+
+function clearAllHistory() {
+    if (!confirm('Are you sure you want to clear all your chat history? This cannot be undone.')) return;
+    
+    // Clear localStorage
+    localStorage.removeItem('medrag_sessions');
+    localStorage.removeItem('medrag_history');
+    
+    // Clear current state
+    conversationHistory = [];
+    currentSessionId = Date.now().toString();
+    
+    // Update UI
+    document.getElementById('historyList').innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-muted);">No queries yet</div>';
+    document.getElementById('chatContainer').innerHTML = '';
+    
+    // Show welcome hero
+    const welcomeHero = document.getElementById('welcomeHero');
+    if (welcomeHero) welcomeHero.style.display = 'flex';
 }
 
 // ===== STATS =====
@@ -641,6 +674,13 @@ function toggleSettings() {
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 
+function toggleMobileSidebar() {
+    const historyPanel = document.getElementById('historyPanel');
+    if (historyPanel) {
+        historyPanel.classList.toggle('mobile-open');
+    }
+}
+
 // ===== UTILITIES =====
 function scrollToBottom() {
     const chatContainer = document.getElementById('chatContainer');
@@ -674,7 +714,7 @@ function getModelLabel(model) {
 }
 
 // ===== OPD PATIENT MANAGEMENT =====
-let opdPatients = JSON.parse(localStorage.getItem('opdPatients') || '[]');
+let opdPatients = safeJSONParse('opdPatients', []);
 let currentViewingPatientId = null;
 
 function toggleOPD() {
@@ -721,21 +761,59 @@ function showPatientForm(patientId = null) {
             document.getElementById('pPastHistory').value = p.pastHistory || '';
             document.getElementById('pDrugHistory').value = p.drugHistory || '';
             document.getElementById('pFamilyHistory').value = p.familyHistory || '';
-            document.getElementById('pBP').value = p.vitals?.bp || '';
-            document.getElementById('pPulse').value = p.vitals?.pulse || '';
-            document.getElementById('pTemp').value = p.vitals?.temp || '';
-            document.getElementById('pSpO2').value = p.vitals?.spo2 || '';
-            document.getElementById('pRR').value = p.vitals?.rr || '';
-            document.getElementById('pGeneralExam').value = p.generalExam || '';
-            document.getElementById('pCVS').value = p.systemicExam?.cvs || '';
-            document.getElementById('pRS').value = p.systemicExam?.rs || '';
-            document.getElementById('pPA').value = p.systemicExam?.pa || '';
-            document.getElementById('pCNS').value = p.systemicExam?.cns || '';
-            document.getElementById('pDiagnosis').value = p.provisionalDiagnosis || '';
+            document.getElementById('pAddress').value = p.address || '';
+            
+            // For editing, show the first visit notes if available
+            if (p.visits && p.visits.length > 0) {
+                document.getElementById('vBP').value = p.visits[0].bp || '';
+                document.getElementById('vSugar').value = p.visits[0].sugar || '';
+                document.getElementById('vPulse').value = p.visits[0].pulse || '';
+                document.getElementById('vHeight').value = p.visits[0].height || '';
+                document.getElementById('vWeight').value = p.visits[0].weight || '';
+                document.getElementById('vTemp').value = p.visits[0].temp || '';
+                document.getElementById('vComplaint').value = p.visits[0].complaint || '';
+                document.getElementById('vTabletHistory').value = p.visits[0].tabletHistory || '';
+                document.getElementById('pVisitNotes').value = p.visits[0].notes || '';
+            } else {
+                document.getElementById('vBP').value = '';
+                document.getElementById('vSugar').value = '';
+                document.getElementById('vPulse').value = '';
+                document.getElementById('vHeight').value = '';
+                document.getElementById('vWeight').value = '';
+                document.getElementById('vTemp').value = '';
+                document.getElementById('vComplaint').value = '';
+                document.getElementById('vTabletHistory').value = '';
+                document.getElementById('pVisitNotes').value = '';
+            }
         }
         document.getElementById('patientForm').dataset.editId = patientId;
     } else {
         delete document.getElementById('patientForm').dataset.editId;
+        // Date-based sequential OP Number logic (e.g., 13001)
+        const now = new Date();
+        const datePrefix = now.getDate().toString(); // e.g., "13"
+        
+        // Find existing patients added TODAY and get the highest sequence
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const todaysPatients = opdPatients.filter(p => new Date(p.createdAt).getTime() >= todayStart);
+        
+        let nextSeq = 1;
+        if (todaysPatients.length > 0) {
+            // Extract the sequence part from existing OP numbers that match the datePrefix
+            const sequences = todaysPatients
+                .map(p => {
+                    const op = p.opNumber || '';
+                    if (op.startsWith(datePrefix) && op.length > datePrefix.length) {
+                        return parseInt(op.substring(datePrefix.length)) || 0;
+                    }
+                    return 0;
+                });
+            nextSeq = Math.max(...sequences, 0) + 1;
+        }
+        
+        const sequenceStr = nextSeq.toString().padStart(3, '0');
+        const finalOp = datePrefix + sequenceStr;
+        document.getElementById('pOpNumber').value = finalOp;
     }
     lucide.createIcons();
 }
@@ -748,34 +826,45 @@ function savePatient() {
         return;
     }
 
+    const bp = document.getElementById('vBP').value.trim();
+    const sugar = document.getElementById('vSugar').value.trim();
+    const pulse = document.getElementById('vPulse').value.trim();
+    const height = document.getElementById('vHeight').value.trim();
+    const weight = document.getElementById('vWeight').value.trim();
+    const temp = document.getElementById('vTemp').value.trim();
+    const complaint = document.getElementById('vComplaint').value.trim();
+    const tabletHistory = document.getElementById('vTabletHistory').value.trim();
+    const visitNotes = document.getElementById('pVisitNotes').value.trim();
+
     const patientData = {
         id: document.getElementById('patientForm').dataset.editId || Date.now().toString(),
         name: name,
         age: parseInt(age),
         sex: document.getElementById('pSex').value,
         opNumber: document.getElementById('pOpNumber').value.trim(),
-        chiefComplaint: document.getElementById('pChiefComplaint').value.trim(),
-        hpi: document.getElementById('pHPI').value.trim(),
+        address: document.getElementById('pAddress').value.trim(),
         pastHistory: document.getElementById('pPastHistory').value.trim(),
         drugHistory: document.getElementById('pDrugHistory').value.trim(),
         familyHistory: document.getElementById('pFamilyHistory').value.trim(),
-        vitals: {
-            bp: document.getElementById('pBP').value.trim(),
-            pulse: document.getElementById('pPulse').value.trim(),
-            temp: document.getElementById('pTemp').value.trim(),
-            spo2: document.getElementById('pSpO2').value.trim(),
-            rr: document.getElementById('pRR').value.trim()
-        },
-        generalExam: document.getElementById('pGeneralExam').value.trim(),
-        systemicExam: {
-            cvs: document.getElementById('pCVS').value.trim(),
-            rs: document.getElementById('pRS').value.trim(),
-            pa: document.getElementById('pPA').value.trim(),
-            cns: document.getElementById('pCNS').value.trim()
-        },
-        provisionalDiagnosis: document.getElementById('pDiagnosis').value.trim(),
+        visits: [],
         createdAt: new Date().toISOString()
     };
+    
+    // Add initial visit if editing a new case
+    if (visitNotes || complaint || bp || sugar) {
+        patientData.visits.push({
+            date: new Date().toISOString(),
+            bp: bp,
+            sugar: sugar,
+            pulse: pulse,
+            height: height,
+            weight: weight,
+            temp: temp,
+            complaint: complaint,
+            tabletHistory: tabletHistory,
+            notes: visitNotes
+        });
+    }
 
     // Update or insert
     const existingIdx = opdPatients.findIndex(x => x.id === patientData.id);
@@ -812,7 +901,7 @@ function renderPatientList() {
                         <span>${p.age}/${p.sex[0]}</span>
                         ${p.opNumber ? `<span>${p.opNumber}</span>` : ''}
                     </div>
-                    ${p.chiefComplaint ? `<div class="opd-patient-complaint">${p.chiefComplaint}</div>` : ''}
+                    ${p.visits && p.visits.length > 0 ? `<div class="opd-patient-complaint">${p.visits[0].notes.substring(0, 60)}...</div>` : ''}
                 </div>
                 <div class="opd-patient-date">${dateStr}</div>
             </div>
@@ -831,17 +920,52 @@ function viewPatient(id) {
     document.getElementById('opdDetailView').style.display = '';
     document.getElementById('opdAddBtn').style.display = 'none';
     document.getElementById('opdHeaderLeft').querySelector('h2').textContent = p.name;
+    
+    // Ensure chat widget is closed when opening a patient
+    document.getElementById('opdChatWidget').style.display = 'none';
 
-    const v = p.vitals || {};
-    const s = p.systemicExam || {};
+    // Build timeline UI
+    let visitsHtml = '';
+    if (p.visits && p.visits.length > 0) {
+        let cards = p.visits.map((msg, i) => {
+            const vDate = new Date(msg.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            return `
+                <div class="opd-visit-card">
+                    <div class="opd-visit-header">
+                        <span>Visit ${i + 1}</span>
+                        <span>${vDate}</span>
+                    </div>
+                    ${msg.complaint ? `<div style="font-size: 0.9em; margin-top: 0.5rem;"><strong>Complaint:</strong> ${msg.complaint}</div>` : ''}
+                    <div class="opd-vitals-row" style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        ${msg.bp ? `<span class="opd-vital-badge" style="padding: 2px 8px; font-size: 0.8em;">BP: ${msg.bp}</span>` : ''}
+                        ${msg.sugar ? `<span class="opd-vital-badge" style="padding: 2px 8px; font-size: 0.8em;">Sugar: ${msg.sugar}</span>` : ''}
+                        ${msg.pulse ? `<span class="opd-vital-badge" style="padding: 2px 8px; font-size: 0.8em;">Pulse: ${msg.pulse}</span>` : ''}
+                        ${msg.temp ? `<span class="opd-vital-badge" style="padding: 2px 8px; font-size: 0.8em;">Temp: ${msg.temp}</span>` : ''}
+                        ${msg.weight ? `<span class="opd-vital-badge" style="padding: 2px 8px; font-size: 0.8em;">Wt: ${msg.weight}kg</span>` : ''}
+                        ${msg.height ? `<span class="opd-vital-badge" style="padding: 2px 8px; font-size: 0.8em;">Ht: ${msg.height}cm</span>` : ''}
+                    </div>
+                    ${msg.tabletHistory ? `<div style="font-size: 0.9em; margin-top: 0.5rem;"><strong>Rx:</strong> ${msg.tabletHistory}</div>` : ''}
+                    ${msg.notes ? `<div class="opd-visit-notes" style="margin-top: 0.5rem;">${msg.notes}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+        
+        visitsHtml = `
+            <div class="opd-detail-section" style="background: transparent; border: none; padding: 0;">
+                <h4 style="margin-bottom: 0;">Visit History</h4>
+                <div class="opd-visit-history">
+                    ${cards}
+                </div>
+            </div>
+        `;
+    }
 
     document.getElementById('opdDetailContent').innerHTML = `
         <div class="opd-detail-section">
             <h4>Basic Information</h4>
             <p><strong>${p.name}</strong> | ${p.age} yrs | ${p.sex} ${p.opNumber ? '| ' + p.opNumber : ''}</p>
+            ${p.address ? `<p style="font-size: 0.85em; color: var(--text-secondary); margin-top: 0.25rem;">${p.address}</p>` : ''}
         </div>
-        ${p.chiefComplaint ? `<div class="opd-detail-section"><h4>Chief Complaint</h4><p>${p.chiefComplaint}</p></div>` : ''}
-        ${p.hpi ? `<div class="opd-detail-section"><h4>History of Present Illness</h4><p>${p.hpi}</p></div>` : ''}
         ${p.pastHistory || p.drugHistory || p.familyHistory ? `
             <div class="opd-detail-section">
                 <h4>Past & Drug History</h4>
@@ -850,31 +974,62 @@ function viewPatient(id) {
                 ${p.familyHistory ? `<p><strong>Family:</strong> ${p.familyHistory}</p>` : ''}
             </div>
         ` : ''}
-        ${v.bp || v.pulse || v.temp || v.spo2 || v.rr ? `
-            <div class="opd-detail-section">
-                <h4>Vitals</h4>
-                <div class="opd-vitals-row">
-                    ${v.bp ? `<div class="opd-vital-badge"><div class="vital-label">BP</div><div class="vital-value">${v.bp}</div></div>` : ''}
-                    ${v.pulse ? `<div class="opd-vital-badge"><div class="vital-label">Pulse</div><div class="vital-value">${v.pulse}</div></div>` : ''}
-                    ${v.temp ? `<div class="opd-vital-badge"><div class="vital-label">Temp</div><div class="vital-value">${v.temp}°F</div></div>` : ''}
-                    ${v.spo2 ? `<div class="opd-vital-badge"><div class="vital-label">SpO2</div><div class="vital-value">${v.spo2}%</div></div>` : ''}
-                    ${v.rr ? `<div class="opd-vital-badge"><div class="vital-label">RR</div><div class="vital-value">${v.rr}</div></div>` : ''}
-                </div>
-            </div>
-        ` : ''}
-        ${p.generalExam ? `<div class="opd-detail-section"><h4>General Examination</h4><p>${p.generalExam}</p></div>` : ''}
-        ${s.cvs || s.rs || s.pa || s.cns ? `
-            <div class="opd-detail-section">
-                <h4>Systemic Examination</h4>
-                ${s.cvs ? `<p><strong>CVS:</strong> ${s.cvs}</p>` : ''}
-                ${s.rs ? `<p><strong>RS:</strong> ${s.rs}</p>` : ''}
-                ${s.pa ? `<p><strong>P/A:</strong> ${s.pa}</p>` : ''}
-                ${s.cns ? `<p><strong>CNS:</strong> ${s.cns}</p>` : ''}
-            </div>
-        ` : ''}
-        ${p.provisionalDiagnosis ? `<div class="opd-detail-section"><h4>Provisional Diagnosis</h4><p>${p.provisionalDiagnosis}</p></div>` : ''}
+        ${visitsHtml}
     `;
+    
+    // Clear the followup text box
+    document.getElementById('fBP').value = '';
+    document.getElementById('fSugar').value = '';
+    document.getElementById('fPulse').value = '';
+    document.getElementById('fHeight').value = '';
+    document.getElementById('fWeight').value = '';
+    document.getElementById('fTemp').value = '';
+    document.getElementById('fComplaint').value = '';
+    document.getElementById('fTabletHistory').value = '';
+    document.getElementById('pFollowUpNotes').value = '';
+    
     lucide.createIcons();
+}
+
+function addFollowUp() {
+    if (!currentViewingPatientId) return;
+    const bp = document.getElementById('fBP').value.trim();
+    const sugar = document.getElementById('fSugar').value.trim();
+    const pulse = document.getElementById('fPulse').value.trim();
+    const height = document.getElementById('fHeight').value.trim();
+    const weight = document.getElementById('fWeight').value.trim();
+    const temp = document.getElementById('fTemp').value.trim();
+    const complaint = document.getElementById('fComplaint').value.trim();
+    const tabletHistory = document.getElementById('fTabletHistory').value.trim();
+    const notes = document.getElementById('pFollowUpNotes').value.trim();
+
+    if (!notes && !complaint && !bp && !sugar) {
+        alert("Please enter at least some follow-up information.");
+        return;
+    }
+    
+    const idx = opdPatients.findIndex(x => x.id === currentViewingPatientId);
+    if (idx === -1) return;
+    
+    if (!opdPatients[idx].visits) opdPatients[idx].visits = [];
+    
+    opdPatients[idx].visits.push({
+        date: new Date().toISOString(),
+        bp: bp,
+        sugar: sugar,
+        pulse: pulse,
+        height: height,
+        weight: weight,
+        temp: temp,
+        complaint: complaint,
+        tabletHistory: tabletHistory,
+        notes: notes
+    });
+    
+    localStorage.setItem('opdPatients', JSON.stringify(opdPatients));
+    
+    // Re-render the detail view
+    viewPatient(currentViewingPatientId);
 }
 
 function deleteCurrentPatient() {
@@ -887,29 +1042,35 @@ function deleteCurrentPatient() {
 }
 
 function buildClinicalSummary(p) {
-    const v = p.vitals || {};
-    const s = p.systemicExam || {};
     let summary = `CLINICAL CASE FOR ANALYSIS:\n`;
     summary += `Patient: ${p.name}, ${p.age} year old ${p.sex}\n`;
     if (p.opNumber) summary += `OP Number: ${p.opNumber}\n`;
-    if (p.chiefComplaint) summary += `Chief Complaint: ${p.chiefComplaint}\n`;
-    if (p.hpi) summary += `History of Present Illness: ${p.hpi}\n`;
     if (p.pastHistory) summary += `Past Medical History: ${p.pastHistory}\n`;
     if (p.drugHistory) summary += `Drug History: ${p.drugHistory}\n`;
     if (p.familyHistory) summary += `Family History: ${p.familyHistory}\n`;
-    if (v.bp || v.pulse || v.temp || v.spo2 || v.rr) {
-        summary += `Vitals: BP ${v.bp || 'N/A'}, Pulse ${v.pulse || 'N/A'}, Temp ${v.temp || 'N/A'}F, SpO2 ${v.spo2 || 'N/A'}%, RR ${v.rr || 'N/A'}/min\n`;
+    
+    if (p.visits && p.visits.length > 0) {
+        summary += `\n--- VISIT HISTORY ---\n`;
+        p.visits.forEach((v, i) => {
+            const dateStr = new Date(v.date).toLocaleDateString('en-IN');
+            summary += `[Visit ${i + 1} - ${dateStr}]:\n`;
+            if (v.complaint) summary += `  Complaint: ${v.complaint}\n`;
+            if (v.bp || v.sugar || v.pulse || v.temp || v.weight || v.height) {
+                summary += `  Vitals: `;
+                if (v.bp) summary += `BP ${v.bp}, `;
+                if (v.sugar) summary += `Sugar ${v.sugar}, `;
+                if (v.pulse) summary += `Pulse ${v.pulse}, `;
+                if (v.temp) summary += `Temp ${v.temp}, `;
+                if (v.weight) summary += `Wt ${v.weight}kg, `;
+                if (v.height) summary += `Ht ${v.height}cm`;
+                summary += `\n`;
+            }
+            if (v.notes) summary += `  Notes: ${v.notes}\n`;
+            if (v.tabletHistory) summary += `  Prescribed/Rx: ${v.tabletHistory}\n`;
+        });
     }
-    if (p.generalExam) summary += `General Examination: ${p.generalExam}\n`;
-    if (s.cvs || s.rs || s.pa || s.cns) {
-        summary += `Systemic Examination:\n`;
-        if (s.cvs) summary += `  CVS: ${s.cvs}\n`;
-        if (s.rs) summary += `  RS: ${s.rs}\n`;
-        if (s.pa) summary += `  P/A: ${s.pa}\n`;
-        if (s.cns) summary += `  CNS: ${s.cns}\n`;
-    }
-    if (p.provisionalDiagnosis) summary += `Student's Provisional Diagnosis: ${p.provisionalDiagnosis}\n`;
-    summary += `\nPlease provide your clinical assessment.`;
+    
+    summary += `\nPlease provide your clinical assessment based on this history.`;
     return summary;
 }
 
@@ -939,68 +1100,126 @@ function analyzePatientWithAI() {
     runOPDAnalysis(p);
 }
 
-let lastAnalyzedPatientId = null;
+let currentPatientChatHistory = [];
 
-function backFromAnalysis() {
-    if (lastAnalyzedPatientId) {
-        viewPatient(lastAnalyzedPatientId);
+function toggleOPDChatWidget() {
+    if (!currentViewingPatientId) {
+        alert("Please save or view a patient first.");
+        return;
+    }
+    const widget = document.getElementById('opdChatWidget');
+    const fab = document.getElementById('opdFab');
+    const isHidden = widget.style.display === 'none' || widget.style.display === '';
+    
+    if (isHidden) {
+        widget.style.display = 'flex';
+        if (fab) fab.style.display = 'none'; // Hide FAB when chat is open
+        // Initialize if empty
+        if (currentPatientChatHistory.length === 0) {
+            clearPatientChat();
+        }
     } else {
-        showPatientList();
+        widget.style.display = 'none';
+        if (fab) fab.style.display = 'flex'; // Show FAB when chat is closed
     }
 }
 
-async function runOPDAnalysis(patient) {
-    lastAnalyzedPatientId = patient.id;
-
-    // Show analysis view
-    document.getElementById('opdListView').style.display = 'none';
-    document.getElementById('opdFormView').style.display = 'none';
-    document.getElementById('opdDetailView').style.display = 'none';
-    document.getElementById('opdAnalysisView').style.display = '';
-    document.getElementById('opdAddBtn').style.display = 'none';
-    document.getElementById('opdHeaderLeft').querySelector('h2').textContent = 'AI Clinical Analysis';
-
-    // Show patient bar
-    document.getElementById('opdAnalysisPatientBar').innerHTML = `
-        <strong>${patient.name}</strong> | ${patient.age}/${patient.sex[0]} 
-        ${patient.chiefComplaint ? '| ' + patient.chiefComplaint : ''}
+function clearPatientChat() {
+    currentPatientChatHistory = [];
+    document.getElementById('opdChatMessages').innerHTML = `
+        <div class="message assistant-message">
+            Hi there! I am the AI assistant for this patient. Click "Analyze with AI" below to get started, or ask me a question!
+        </div>
     `;
+    document.getElementById('chatWidgetQuickReplies').style.display = 'flex';
+    document.getElementById('opdChatInput').value = '';
+}
 
-    // Show loading, hide result
-    document.getElementById('opdAnalysisLoading').style.display = 'flex';
-    document.getElementById('opdAnalysisResult').innerHTML = '';
-    lucide.createIcons();
-
+async function generatePatientAnalysis() {
+    const patient = opdPatients.find(x => x.id === currentViewingPatientId);
+    if (!patient) return;
+    
+    // Hide quick replies
+    document.getElementById('chatWidgetQuickReplies').style.display = 'none';
+    
     const summary = buildClinicalSummary(patient);
+    
+    // Push the context silently as system/user prompt
+    currentPatientChatHistory.push({ role: "user", content: "Please analyze the following patient case concisely:\n" + summary });
+    
+    // Visually show the user asked for analysis
+    appendOPDMessage('user', 'Analyze with AI');
+    
+    await streamOPDResponse();
+}
 
+function appendOPDMessage(role, content, msgId = null, isStreaming = false) {
+    const chatContainer = document.getElementById('opdChatMessages');
+    let msgDiv;
+    
+    if (msgId) {
+        msgDiv = document.getElementById(msgId);
+    }
+    
+    if (!msgDiv) {
+        msgDiv = document.createElement('div');
+        msgDiv.className = `message ${role === 'user' ? 'user-message' : 'assistant-message'}`;
+        if (msgId) msgDiv.id = msgId;
+        
+        chatContainer.appendChild(msgDiv);
+    }
+
+    if (isStreaming) {
+        msgDiv.innerHTML = '<div class="typing-dots">' +
+            '<div class="typing-dot" style="animation-delay: 0s"></div>' +
+            '<div class="typing-dot" style="animation-delay: 0.2s"></div>' +
+            '<div class="typing-dot" style="animation-delay: 0.4s"></div>' +
+            '</div>';
+    } else {
+        msgDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(content) : content.replace(/\n/g, '<br>');
+    }
+    
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    lucide.createIcons();
+    return msgDiv.id;
+}
+
+async function streamOPDResponse() {
+    // Add loading indicator for AI
+    const msgId = 'opd_msg_' + Date.now();
+    appendOPDMessage('assistant', '', msgId, true);
+    
     try {
-        const response = await fetch(`${API_BASE}/query/stream`, {
+        const response = await fetch(`${API_BASE}/ask-question-stream`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                query: summary,
+                query: currentPatientChatHistory[currentPatientChatHistory.length - 1].content,
                 search_mode: searchMode,
                 persona: 'student',
-                history: [],
+                history: currentPatientChatHistory.slice(0, -1),
                 provider: currentProvider,
                 model: currentModel,
                 tool: 'clinical'
             })
         });
 
-        // Hide loading
-        document.getElementById('opdAnalysisLoading').style.display = 'none';
+        if (!response.ok) {
+            throw new Error(`Server returned status ${response.status}: ${response.statusText}`);
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = '';
+        let buffer = '';
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep the incomplete line in buffer
 
             for (const line of lines) {
                 if (line.startsWith('data: ')) {
@@ -1008,18 +1227,39 @@ async function runOPDAnalysis(patient) {
                         const data = JSON.parse(line.slice(6));
                         if (typeof data === 'string') {
                             fullText += data;
-                            document.getElementById('opdAnalysisResult').innerHTML =
-                                typeof marked !== 'undefined' ? marked.parse(fullText) : fullText.replace(/\n/g, '<br>');
+                            appendOPDMessage('assistant', fullText, msgId, false);
                         }
                     } catch (e) { /* skip non-JSON */ }
                 }
             }
         }
+        
+        // Save the full response to history
+        currentPatientChatHistory.push({ role: 'assistant', content: fullText });
+        
     } catch (err) {
-        document.getElementById('opdAnalysisLoading').style.display = 'none';
-        document.getElementById('opdAnalysisResult').innerHTML = `
-            <p style="color: var(--error);">Error: Could not analyze. Please check your connection and try again.</p>
-            <p style="color: var(--text-muted);">${err.message}</p>
-        `;
+        appendOPDMessage('assistant', `<span style="color: var(--error);">Error: ${err.message}. Please try again.</span>`, msgId, false);
     }
 }
+
+async function sendPatientChatMessage() {
+    const inputEl = document.getElementById('opdChatInput');
+    const msg = inputEl.value.trim();
+    if (!msg) return;
+
+    // Add User Message to UI natively
+    inputEl.value = '';
+    inputEl.style.height = 'auto'; // Reset height
+    
+    appendOPDMessage('user', msg);
+    currentPatientChatHistory.push({ role: "user", content: msg });
+    
+    await streamOPDResponse();
+}
+
+function toggleMobileSidebar() {
+    const historyPanel = document.getElementById('historyPanel');
+    if (historyPanel) {
+        historyPanel.classList.toggle('mobile-open');
+    }
+}

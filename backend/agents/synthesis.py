@@ -1,6 +1,7 @@
 # backend/agents/synthesis.py
+import os
 from groq import Groq
-import google.generativeai as genai
+from google import genai
 import asyncio
 from typing import List, Dict, AsyncGenerator
 
@@ -18,8 +19,9 @@ class SynthesisAgent:
     def __init__(self, groq_api_key: str, gemini_api_key: str = None):
         self.groq_client = Groq(api_key=groq_api_key)
         self.gemini_api_key = gemini_api_key
+        self.gemini_client = None
         if gemini_api_key:
-            genai.configure(api_key=gemini_api_key)
+            self.gemini_client = genai.Client(api_key=gemini_api_key)
     
     async def generate_answer(self, query: str, textbook_results: List[Dict], pubmed_results: List[Dict], persona: str = 'student', history: List[Dict] = [], provider: str = 'groq', model: str = 'llama-3.3-70b-versatile', tool: str = 'default') -> str:
         """Generate answer using selected provider, model, and tool"""
@@ -96,20 +98,22 @@ USER QUERY: {query}"""
     async def _generate_gemini(self, system_prompt: str, history: List[Dict], context_prompt: str, model: str) -> str:
         """Generate using Gemini (run blocking call in thread executor)"""
         try:
-            gemini_model = genai.GenerativeModel(
-                model_name=model,
-                system_instruction=system_prompt
-            )
-            
-            gemini_history = []
+            # Build contents with history
+            contents = []
             for msg in history[-10:]:
                 role = "user" if msg["role"] == "user" else "model"
-                gemini_history.append({"role": role, "parts": [msg["content"]]})
+                contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+            contents.append({"role": "user", "parts": [{"text": context_prompt}]})
             
-            chat = gemini_model.start_chat(history=gemini_history)
+            config = {"system_instruction": system_prompt}
             
             loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(None, chat.send_message, context_prompt)
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.gemini_client.models.generate_content(
+                    model=model, contents=contents, config=config
+                )
+            )
             return response.text
         except Exception as e:
             print(f"❌ Gemini error: {type(e).__name__}: {e}")
@@ -118,17 +122,21 @@ USER QUERY: {query}"""
     async def _stream_gemini(self, system_prompt, history, context_prompt, model):
         """Stream using Gemini (collect chunks in executor, yield async)"""
         try:
-            gemini_model = genai.GenerativeModel(model_name=model, system_instruction=system_prompt)
-            gemini_history = []
+            # Build contents with history
+            contents = []
             for msg in history[-10:]:
                 role = "user" if msg["role"] == "user" else "model"
-                gemini_history.append({"role": role, "parts": [msg["content"]]})
-            chat = gemini_model.start_chat(history=gemini_history)
+                contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+            contents.append({"role": "user", "parts": [{"text": context_prompt}]})
+            
+            config = {"system_instruction": system_prompt}
             
             # Gemini streaming is blocking — collect all chunks in a thread executor
             def _collect_stream():
                 chunks = []
-                for chunk in chat.send_message(context_prompt, stream=True):
+                for chunk in self.gemini_client.models.generate_content_stream(
+                    model=model, contents=contents, config=config
+                ):
                     if chunk.text:
                         chunks.append(chunk.text)
                 return chunks

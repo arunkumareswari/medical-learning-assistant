@@ -23,6 +23,10 @@
         <!-- Top Navigation Bar -->
         <nav class="top-navbar">
             <div class="nav-left">
+                <!-- Hamburger Menu (mobile only) -->
+                <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileSidebar()" title="History">
+                    <i data-lucide="menu"></i>
+                </button>
                 <div class="logo-container">
                     <div class="logo-icon">
                         <i data-lucide="dna"></i>
@@ -52,12 +56,6 @@
             </div>
 
             <div class="nav-right">
-                <button class="icon-btn" onclick="toggleHistory()" title="Query History">
-                    <i data-lucide="clock"></i>
-                </button>
-                <button class="icon-btn" onclick="toggleSettings()" title="Settings & Info">
-                    <i data-lucide="settings"></i>
-                </button>
                 <button class="icon-btn opd-nav-btn" onclick="toggleOPD()" title="OPD Assistant">
                     <i data-lucide="stethoscope"></i>
                 </button>
@@ -80,6 +78,12 @@
                 </div>
                 <div class="history-list" id="historyList">
                     <!-- Dynamically populated -->
+                </div>
+                <!-- Settings Footer -->
+                <div class="sidebar-footer">
+                    <button class="clear-history-btn" onclick="clearAllHistory()" title="Clear All History">
+                        <i data-lucide="trash-2"></i> Clear History
+                    </button>
                 </div>
             </aside>
 
@@ -212,11 +216,7 @@
                     </ul>
                 </div>
 
-                <div class="disclaimer">
-                    <i data-lucide="alert-triangle"></i>
-                    <p><strong>Medical Disclaimer:</strong> This tool is for educational purposes only. Always consult
-                        healthcare professionals for medical advice.</p>
-                </div>
+
             </aside>
         </div>
 
@@ -231,7 +231,7 @@
                     </div>
                     <div class="opd-header-right">
                         <button class="opd-add-btn" id="opdAddBtn" onclick="showPatientForm()">
-                            <i data-lucide="plus"></i> Add Patient
+                            <i data-lucide="plus"></i>
                         </button>
                         <button class="opd-close-btn" onclick="toggleOPD()">
                             <i data-lucide="x"></i>
@@ -276,108 +276,84 @@
                                 </div>
                                 <div class="opd-field opd-field-small">
                                     <label>OP Number</label>
-                                    <input type="text" id="pOpNumber" placeholder="OP-1234">
+                                    <input type="text" id="pOpNumber" placeholder="Auto-generated" readonly style="background: var(--bg-primary); cursor: not-allowed; opacity: 0.8;">
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Chief Complaint -->
-                        <div class="opd-section">
-                            <h3><i data-lucide="alert-circle"></i> Chief Complaint</h3>
-                            <textarea id="pChiefComplaint" rows="2"
-                                placeholder="e.g., Fever and cough x 3 days"></textarea>
-                        </div>
-
-                        <!-- History of Present Illness -->
-                        <div class="opd-section">
-                            <h3><i data-lucide="file-text"></i> History of Present Illness</h3>
-                            <textarea id="pHPI" rows="3" placeholder="Detailed symptom timeline..."></textarea>
-                        </div>
-
-                        <!-- Past History & Drug History -->
-                        <div class="opd-section">
-                            <h3><i data-lucide="history"></i> Past & Drug History</h3>
                             <div class="opd-row">
                                 <div class="opd-field">
-                                    <label>Past Medical History</label>
-                                    <textarea id="pPastHistory" rows="2"
-                                        placeholder="DM, HTN, TB, Surgeries..."></textarea>
+                                    <label>Patient Address</label>
+                                    <input type="text" id="pAddress" placeholder="123 Main St, City">
                                 </div>
-                                <div class="opd-field">
-                                    <label>Drug History</label>
-                                    <textarea id="pDrugHistory" rows="2"
-                                        placeholder="Current medications..."></textarea>
-                                </div>
-                            </div>
-                            <div class="opd-field" style="margin-top:0.5rem;">
-                                <label>Family History</label>
-                                <input type="text" id="pFamilyHistory" placeholder="Father - HTN, Mother - DM...">
                             </div>
                         </div>
 
-                        <!-- Vitals -->
+                        <!-- Past & Drug History -->
                         <div class="opd-section">
-                            <h3><i data-lucide="heart-pulse"></i> Vitals</h3>
-                            <div class="opd-vitals-grid">
+                            <h3><i data-lucide="history"></i> Past & Drug History</h3>
+                            <div class="opd-field" style="margin-bottom: 0.75rem;">
+                                <label>Past Medical History</label>
+                                <textarea id="pPastHistory" rows="2" placeholder="Any known medical conditions (e.g., HTN, DM)..."></textarea>
+                            </div>
+                            <div class="opd-row">
+                                <div class="opd-field">
+                                    <label>Drug History / Regular Tablets</label>
+                                    <textarea id="pDrugHistory" rows="2" placeholder="Medications currently taking..."></textarea>
+                                </div>
+                                <div class="opd-field">
+                                    <label>Family History</label>
+                                    <textarea id="pFamilyHistory" rows="2" placeholder="Relevant family medical history..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Visit Details -->
+                        <div class="opd-section">
+                            <h3><i data-lucide="activity"></i> Visit Details</h3>
+                            
+                            <!-- Clinical Parameters -->
+                            <div class="opd-vitals-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 1rem;">
                                 <div class="opd-vital">
                                     <label>BP (mmHg)</label>
-                                    <input type="text" id="pBP" placeholder="130/80">
+                                    <input type="text" id="vBP" placeholder="120/80">
+                                </div>
+                                <div class="opd-vital">
+                                    <label>Sugar (mg/dL)</label>
+                                    <input type="text" id="vSugar" placeholder="140 (RBS)">
                                 </div>
                                 <div class="opd-vital">
                                     <label>Pulse (bpm)</label>
-                                    <input type="number" id="pPulse" placeholder="88">
+                                    <input type="number" id="vPulse" placeholder="72">
+                                </div>
+                                <div class="opd-vital">
+                                    <label>Height (cm)</label>
+                                    <input type="number" id="vHeight" placeholder="170">
+                                </div>
+                                <div class="opd-vital">
+                                    <label>Weight (kg)</label>
+                                    <input type="number" id="vWeight" placeholder="70">
                                 </div>
                                 <div class="opd-vital">
                                     <label>Temp (°F)</label>
-                                    <input type="text" id="pTemp" placeholder="101">
-                                </div>
-                                <div class="opd-vital">
-                                    <label>SpO2 (%)</label>
-                                    <input type="number" id="pSpO2" placeholder="96">
-                                </div>
-                                <div class="opd-vital">
-                                    <label>RR (/min)</label>
-                                    <input type="number" id="pRR" placeholder="18">
+                                    <input type="text" id="vTemp" placeholder="98.6">
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- General Examination -->
-                        <div class="opd-section">
-                            <h3><i data-lucide="scan-eye"></i> General Examination</h3>
-                            <textarea id="pGeneralExam" rows="2"
-                                placeholder="Built, Nourishment, Pallor, Icterus, Cyanosis, Clubbing, Edema, Lymphadenopathy..."></textarea>
-                        </div>
-
-                        <!-- Systemic Examination -->
-                        <div class="opd-section">
-                            <h3><i data-lucide="activity"></i> Systemic Examination</h3>
-                            <div class="opd-row">
-                                <div class="opd-field">
-                                    <label>CVS</label>
-                                    <input type="text" id="pCVS" placeholder="S1S2 normal, no murmurs">
-                                </div>
-                                <div class="opd-field">
-                                    <label>RS</label>
-                                    <input type="text" id="pRS" placeholder="NVBS, bilateral crepts">
-                                </div>
+                            
+                            <!-- Visit Text Inputs -->
+                            <div class="opd-field" style="margin-bottom: 0.75rem;">
+                                <label>Patient Complaint</label>
+                                <textarea id="vComplaint" rows="2" placeholder="Primary reason for visit today..."></textarea>
                             </div>
-                            <div class="opd-row">
-                                <div class="opd-field">
-                                    <label>P/A</label>
-                                    <input type="text" id="pPA" placeholder="Soft, non-tender">
-                                </div>
-                                <div class="opd-field">
-                                    <label>CNS</label>
-                                    <input type="text" id="pCNS" placeholder="No focal deficit">
-                                </div>
+                            
+                            <div class="opd-field" style="margin-bottom: 0.75rem;">
+                                <label>Tablet / Treatment History</label>
+                                <textarea id="vTabletHistory" rows="2" placeholder="Medicines prescribed today..."></textarea>
                             </div>
-                        </div>
 
-                        <!-- Provisional Diagnosis -->
-                        <div class="opd-section">
-                            <h3><i data-lucide="clipboard-check"></i> Provisional Diagnosis</h3>
-                            <input type="text" id="pDiagnosis" placeholder="Your initial impression...">
+                            <div class="opd-field">
+                                <label>Additional Visit Notes</label>
+                                <textarea id="pVisitNotes" rows="2"
+                                    placeholder="Doctor's notes, examination findings..."></textarea>
+                            </div>
                         </div>
 
                         <!-- Action Buttons -->
@@ -388,44 +364,98 @@
                             <button type="button" class="opd-btn-save" onclick="savePatient()">
                                 <i data-lucide="save"></i> Save Patient
                             </button>
-                            <button type="button" class="opd-btn-analyze" onclick="analyzeWithAI()">
-                                <i data-lucide="brain"></i> Analyze with AI
-                            </button>
                         </div>
                     </form>
                 </div>
 
                 <!-- View 3: Patient Detail (read-only) -->
                 <div class="opd-view" id="opdDetailView" style="display:none;">
-                    <div id="opdDetailContent"></div>
-                    <div class="opd-actions">
+                    <div class="opd-detail-top-actions">
                         <button type="button" class="opd-btn-secondary" onclick="showPatientList()">
                             <i data-lucide="arrow-left"></i> Back
-                        </button>
-                        <button type="button" class="opd-btn-analyze" onclick="analyzePatientWithAI()">
-                            <i data-lucide="brain"></i> Analyze with AI
                         </button>
                         <button type="button" class="opd-btn-delete" onclick="deleteCurrentPatient()">
                             <i data-lucide="trash-2"></i> Delete
                         </button>
                     </div>
-                </div>
+                    <div id="opdDetailContent"></div>
+                    
+                    <!-- Follow-up Entry -->
+                    <div class="opd-section opd-followup-entry">
+                        <h3><i data-lucide="plus-circle"></i> Add Follow-up Visit</h3>
+                        
+                        <div class="opd-vitals-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 0.75rem;">
+                            <div class="opd-vital"><label>BP</label><input type="text" id="fBP" placeholder="120/80"></div>
+                            <div class="opd-vital"><label>Sugar</label><input type="text" id="fSugar" placeholder="140"></div>
+                            <div class="opd-vital"><label>Pulse</label><input type="number" id="fPulse" placeholder="72"></div>
+                            <div class="opd-vital"><label>Height (cm)</label><input type="number" id="fHeight" placeholder="170"></div>
+                            <div class="opd-vital"><label>Weight (kg)</label><input type="number" id="fWeight" placeholder="70"></div>
+                            <div class="opd-vital"><label>Temp (°F)</label><input type="text" id="fTemp" placeholder="98.6"></div>
+                        </div>
+                        
+                        <div class="opd-field" style="margin-bottom: 0.5rem;">
+                            <label>Patient Complaint</label>
+                            <textarea id="fComplaint" rows="2" placeholder="Today's complaints..."></textarea>
+                        </div>
+                        
+                        <div class="opd-field" style="margin-bottom: 0.5rem;">
+                            <label>Tablet History</label>
+                            <textarea id="fTabletHistory" rows="2" placeholder="New medicines prescribed..."></textarea>
+                        </div>
 
-                <!-- View 4: AI Analysis Results -->
-                <div class="opd-view" id="opdAnalysisView" style="display:none;">
-                    <div class="opd-analysis-patient-bar" id="opdAnalysisPatientBar"></div>
-                    <div class="opd-analysis-loading" id="opdAnalysisLoading" style="display:none;">
-                        <div class="opd-loading-spinner"></div>
-                        <p>Analyzing patient case...</p>
+                        <div class="opd-field">
+                            <label>Detailed Notes</label>
+                            <textarea id="pFollowUpNotes" rows="2" placeholder="Doctor's notes..."></textarea>
+                        </div>
+                        
+                        <button type="button" class="opd-btn-save" onclick="addFollowUp()" style="margin-top:0.75rem;">
+                            <i data-lucide="calendar-plus"></i> Save Visit
+                        </button>
                     </div>
-                    <div class="opd-analysis-result" id="opdAnalysisResult"></div>
-                    <div class="opd-actions">
-                        <button type="button" class="opd-btn-secondary" onclick="backFromAnalysis()">
-                            <i data-lucide="arrow-left"></i> Back to Patient
-                        </button>
-                        <button type="button" class="opd-btn-secondary" onclick="showPatientList()">
-                            <i data-lucide="list"></i> All Patients
-                        </button>
+
+                    <!-- Floating Chat Button -->
+                    <button class="opd-fab shadow-glow" id="opdFab" onclick="toggleOPDChatWidget()" title="Chat with AI">
+                        <i data-lucide="dna"></i>
+                    </button>
+
+                    <!-- Chat Widget -->
+                    <div class="opd-chat-widget shadow-xl" id="opdChatWidget" style="display:none;">
+                        <!-- Header -->
+                        <div class="chat-widget-header">
+                            <div class="chat-header-info">
+                                <div class="chat-header-avatar">
+                                    <i data-lucide="dna"></i>
+                                </div>
+                                <div class="chat-header-text">
+                                    <strong>MedRAG AI</strong>
+                                    <span>We're online...</span>
+                                </div>
+                            </div>
+                            <div class="chat-header-actions">
+                                <button type="button" onclick="clearPatientChat()" title="Restart chat"><i data-lucide="rotate-cw"></i></button>
+                                <button type="button" onclick="toggleOPDChatWidget()" title="Minimize"><i data-lucide="chevron-down"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Chat Messages Area -->
+                        <div class="chat-widget-messages opd-chat-messages" id="opdChatMessages">
+                            <div class="message assistant-message">
+                                Hi there! I am the AI assistant for this patient. Click "Analyze with AI" below to get started, or ask me a question!
+                            </div>
+                        </div>
+
+                        <!-- Quick Replies -->
+                        <div class="chat-widget-quick-replies" id="chatWidgetQuickReplies">
+                            <button type="button" class="quick-reply-btn" id="btnQuickAnalyze" onclick="generatePatientAnalysis()">Analyze with AI</button>
+                        </div>
+
+                        <!-- Input Area -->
+                        <div class="chat-widget-input-row">
+                            <textarea id="opdChatInput" rows="1" placeholder="Enter message" onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendPatientChatMessage(); }"></textarea>
+                            <button type="button" id="opdChatSendBtn" onclick="sendPatientChatMessage()">
+                                <i data-lucide="send"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
