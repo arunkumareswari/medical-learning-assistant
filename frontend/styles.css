@@ -2044,6 +2044,20 @@ textarea#queryInput::placeholder {
     box-sizing: border-box;
 }
 
+/* Hide Spinners for Number Inputs */
+.opd-field input[type="number"]::-webkit-inner-spin-button,
+.opd-field input[type="number"]::-webkit-outer-spin-button,
+.opd-vital input[type="number"]::-webkit-inner-spin-button,
+.opd-vital input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.opd-field input[type="number"],
+.opd-vital input[type="number"] {
+    -moz-appearance: textfield;
+}
+
 .opd-field input:focus,
 .opd-field textarea:focus,
 .opd-field select:focus,
