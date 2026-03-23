@@ -82,7 +82,8 @@ class PineconeVectorDB:
             metadata = {
                 'book_id': book_id,
                 'text': chunk['text'][:1000],  # Pinecone metadata limit
-                'chunk_index': chunk['chunk_index']
+                'chunk_index': chunk['chunk_index'],
+                'page_num': chunk.get('page_num', 0)
             }
             
             vectors.append({
@@ -134,7 +135,8 @@ class PineconeVectorDB:
                 'distance': 1 - match['score'],  # Convert similarity to distance
                 'metadata': {
                     'book_id': match['metadata'].get('book_id', ''),
-                    'chunk_index': match['metadata'].get('chunk_index', 0)
+                    'chunk_index': match['metadata'].get('chunk_index', 0),
+                    'page_num': match['metadata'].get('page_num', None)
                 }
             })
         

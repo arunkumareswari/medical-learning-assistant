@@ -28,6 +28,7 @@ class RetrievalAgent:
                 'book_title': book_title,
                 'book_id': book_id,
                 'chunk_index': result['metadata']['chunk_index'],
+                'page_num': result['metadata'].get('page_num', None),
                 'relevance_score': 1 - result['distance'] if result['distance'] else 1.0
             })
         

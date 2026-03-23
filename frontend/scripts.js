@@ -413,15 +413,10 @@ function displaySources(messageId, sources) {
                     <i data-lucide="${isTextbook ? 'book' : 'microscope'}"></i>
                     ${isTextbook ? 'Textbook' : 'PubMed'}
                 </div>
+                ${!isTextbook && source.url ? `<a href="${source.url}" target="_blank" class="source-link-badge" onclick="event.stopPropagation()">🔗 Open</a>` : ''}
+                ${isTextbook && source.page_num != null && source.page_num !== 0 ? `<span class="source-page-badge">p.${source.page_num}</span>` : isTextbook && source.chunk_index != null ? `<span class="source-page-badge">~p.${Math.floor(source.chunk_index / 3.75) + 1}</span>` : ''}
             </div>
             <div class="source-title">${escapeHtml(source.title)}</div>
-            <div class="source-preview">${escapeHtml((source.text || source.snippet || '').substring(0, 150))}...</div>
-            ${source.metadata ? `
-                <div class="source-meta">
-                    ${source.metadata.authors ? `Authors: ${escapeHtml(source.metadata.authors)}<br>` : ''}
-                    ${source.metadata.year ? `Year: ${escapeHtml(source.metadata.year)}` : ''}
-                </div>
-            ` : ''}
         `;
 
         if (source.url) {
@@ -725,6 +720,12 @@ function toggleOPD() {
         lucide.createIcons();
     } else {
         panel.style.display = 'none';
+        // Hide FAB when OPD panel is closed
+        const fab = document.getElementById('opdFab');
+        if (fab) fab.style.display = 'none';
+        // Hide chat widget too
+        const widget = document.getElementById('opdChatWidget');
+        if (widget) widget.style.display = 'none';
     }
 }
 
@@ -732,9 +733,10 @@ function showPatientList() {
     document.getElementById('opdListView').style.display = '';
     document.getElementById('opdFormView').style.display = 'none';
     document.getElementById('opdDetailView').style.display = 'none';
-    document.getElementById('opdAddBtn').style.display = '';
-    document.getElementById('opdHeaderLeft').querySelector('h2').textContent = 'OPD Patients';
     renderPatientList();
+    // Hide FAB in patient list view
+    const fab = document.getElementById('opdFab');
+    if (fab) fab.style.display = 'none';
     lucide.createIcons();
 }
 
@@ -815,6 +817,9 @@ function showPatientForm(patientId = null) {
         const finalOp = datePrefix + sequenceStr;
         document.getElementById('pOpNumber').value = finalOp;
     }
+    // Hide FAB in form view
+    const fab = document.getElementById('opdFab');
+    if (fab) fab.style.display = 'none';
     lucide.createIcons();
 }
 
@@ -921,8 +926,10 @@ function viewPatient(id) {
     document.getElementById('opdAddBtn').style.display = 'none';
     document.getElementById('opdHeaderLeft').querySelector('h2').textContent = p.name;
     
-    // Ensure chat widget is closed when opening a patient
+    // Ensure chat widget is closed when opening a patient but show the FAB
     document.getElementById('opdChatWidget').style.display = 'none';
+    const fab = document.getElementById('opdFab');
+    if (fab) fab.style.display = 'flex';
 
     // Build timeline UI
     let visitsHtml = '';
@@ -1128,7 +1135,7 @@ function clearPatientChat() {
     currentPatientChatHistory = [];
     document.getElementById('opdChatMessages').innerHTML = `
         <div class="message assistant-message">
-            Hi there! I am the AI assistant for this patient. Click "Analyze with AI" below to get started, or ask me a question!
+            Hi! Click "Analyze with AI" for a quick assessment, or ask me anything.
         </div>
     `;
     document.getElementById('chatWidgetQuickReplies').style.display = 'flex';
@@ -1144,11 +1151,28 @@ async function generatePatientAnalysis() {
     
     const summary = buildClinicalSummary(patient);
     
-    // Push the context silently as system/user prompt
-    currentPatientChatHistory.push({ role: "user", content: "Please analyze the following patient case concisely:\n" + summary });
+    // Push a focused, concise prompt as the system/user message
+    const shortPrompt = `You are a bedside clinical assistant. Be very brief and practical.
+
+Patient: ${patient.name}, ${patient.age}yr ${patient.sex}
+${patient.pastHistory ? `Past History: ${patient.pastHistory}` : ''}
+${patient.drug_history ? `Drug History: ${patient.drug_history}` : ''}
+
+Visit Complaints:
+${(patient.visits || []).map((v, i) => `Visit ${i+1}: ${v.complaint || ''} ${v.notes ? '| Notes: ' + v.notes : ''}`).join('\n')}
+
+Reply in EXACTLY this format. Each on a NEW LINE. No extra text:
+
+**🩺 Problem:** [one short sentence]
+
+**📋 History:** [one short sentence or "None"]
+
+**💊 Suggest:** [2-3 tablets only]`;
+
+    currentPatientChatHistory.push({ role: "user", content: shortPrompt });
     
     // Visually show the user asked for analysis
-    appendOPDMessage('user', 'Analyze with AI');
+    appendOPDMessage('user', '🔍 Analyze with AI');
     
     await streamOPDResponse();
 }
@@ -1176,7 +1200,25 @@ function appendOPDMessage(role, content, msgId = null, isStreaming = false) {
             '<div class="typing-dot" style="animation-delay: 0.4s"></div>' +
             '</div>';
     } else {
-        msgDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(content) : content.replace(/\n/g, '<br>');
+        // For clinical analysis responses with known emoji section markers,
+        // split and render each section as its own paragraph with bold green label.
+        const hasSections = content.includes('🩺') || content.includes('📋') || content.includes('💊');
+        if (role === 'assistant' && hasSections) {
+            const clean = content.replace(/\*\*/g, ''); // Remove any ** markers
+            // Split on the known emoji section starters (use alternation, not char class)
+            const parts = clean.split(/(?=🩺|📋|💊)/).filter(p => p.trim());
+            const labelColor = '#06d6a0';
+            msgDiv.innerHTML = parts.map(part => {
+                // Match emoji, then label, then colon, then the content
+                const m = part.match(/^(🩺|📋|💊)\s*([^:]+):\s*([\s\S]*)/u);
+                if (m) {
+                    return `<p><strong style="color:${labelColor}">${m[1]} ${m[2].trim()}:</strong> ${m[3].trim()}</p>`;
+                }
+                return `<p>${part.trim()}</p>`;
+            }).join('');
+        } else {
+            msgDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(content) : content.replace(/\n/g, '<br>');
+        }
     }
     
     chatContainer.scrollTop = chatContainer.scrollHeight;

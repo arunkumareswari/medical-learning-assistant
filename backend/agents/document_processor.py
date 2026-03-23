@@ -20,16 +20,16 @@ class DocumentProcessorAgent:
         # Generate book ID
         book_id = self._generate_book_id(book_title)
         
-        # Extract text from PDF
+        # Extract pages from PDF
         print(f"📖 Extracting text from {book_title}...")
-        text_content = self._extract_text_from_pdf(file_path)
+        pages = self._extract_pages_from_pdf(file_path)
         
-        if not text_content:
+        if not pages:
             raise Exception("Failed to extract text from PDF")
         
         # Create chunks
         print(f"✂️ Chunking text...")
-        chunks = self._create_chunks(text_content, book_id)
+        chunks = self._create_chunks(pages, book_id)
         
         # Store in Pinecone
         print(f"💾 Storing {len(chunks)} chunks in Pinecone...")
@@ -46,9 +46,9 @@ class DocumentProcessorAgent:
             'status': 'success'
         }
     
-    def _extract_text_from_pdf(self, file_path: str) -> str:
-        """Extract text from PDF using pdfplumber"""
-        text_content = ""
+    def _extract_pages_from_pdf(self, file_path: str) -> List[Dict]:
+        """Extract text from PDF page by page"""
+        pages = []
         
         try:
             with pdfplumber.open(file_path) as pdf:
@@ -60,37 +60,45 @@ class DocumentProcessorAgent:
                         print(f"   Page {i+1}/{total_pages}...")
                     
                     page_text = page.extract_text()
-                    if page_text:
-                        text_content += page_text + "\n\n"
+                    if page_text and page_text.strip():
+                        pages.append({
+                            'text': page_text.strip(),
+                            'page_num': i + 1
+                        })
             
-            return text_content.strip()
+            return pages
             
         except Exception as e:
             print(f"Error extracting PDF: {e}")
-            return ""
+            return []
     
-    def _create_chunks(self, text: str, book_id: str) -> List[Dict]:
-        """Split text into overlapping chunks"""
+    def _create_chunks(self, pages: List[Dict], book_id: str) -> List[Dict]:
+        """Split text into overlapping chunks while maintaining page number"""
         chunks = []
-        start = 0
         chunk_index = 0
         
-        while start < len(text):
-            end = start + self.chunk_size
-            chunk_text = text[start:end]
+        for page in pages:
+            text = page['text']
+            page_num = page['page_num']
+            start = 0
             
-            # Don't create tiny chunks at the end
-            if len(chunk_text) < 100 and chunks:
-                break
-            
-            chunks.append({
-                'text': chunk_text,
-                'chunk_index': chunk_index,
-                'book_id': book_id
-            })
-            
-            chunk_index += 1
-            start = end - self.chunk_overlap
+            while start < len(text):
+                end = start + self.chunk_size
+                chunk_text = text[start:end]
+                
+                # Don't create tiny chunks at the end
+                if len(chunk_text) < 100 and len(chunks) > 0:
+                    break
+                
+                chunks.append({
+                    'text': chunk_text,
+                    'chunk_index': chunk_index,
+                    'page_num': page_num,
+                    'book_id': book_id
+                })
+                
+                chunk_index += 1
+                start = end - self.chunk_overlap
         
         return chunks
     

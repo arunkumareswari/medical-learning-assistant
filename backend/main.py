@@ -254,16 +254,31 @@ Tell me:
                     await asyncio.sleep(0.01)
             
             # 4. Send sources
+            
+            unique_textbooks = []
+            seen_titles = set()
+            for r in textbook_results:
+                if r['book_title'] not in seen_titles:
+                    unique_textbooks.append({
+                        'title': r['book_title'],
+                        'text': r['text'][:200],
+                        'chunk_index': r.get('chunk_index', None),
+                        'page_num': r.get('page_num', None)
+                    })
+                seen_titles.add(r['book_title'])
+                if len(unique_textbooks) >= 2:
+                    break
 
             sources_data = {
-                "textbooks": [
+                "textbooks": unique_textbooks,
+                "web": [
                     {
-                        'title': r['book_title'],
-                        'text': r['text'][:200]
+                        **r,
+                        'url': r.get('url', f"https://pubmed.ncbi.nlm.nih.gov/{r.get('pmid', '')}/"),
+                        'pmid': r.get('pmid', '')
                     }
-                    for r in textbook_results[:3]
-                ],
-                "web": pubmed_results[:3]
+                    for r in pubmed_results[:3]
+                ]
             }
             
             yield f"event: sources\ndata: {json.dumps(sources_data)}\n\n"
